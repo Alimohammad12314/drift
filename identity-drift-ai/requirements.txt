@@ -16,7 +16,7 @@ beautifulsoup4==4.12.3
 binaryornot==0.4.4
 bleach==6.1.0
 blinker==1.9.0
-Brlapi==0.8.3
+
 cachetools==5.3.3
 certifi==2025.6.15
 cffi==1.16.0
