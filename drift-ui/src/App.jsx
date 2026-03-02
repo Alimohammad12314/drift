@@ -30,7 +30,7 @@ function App() {
   const [aiInsight, setAiInsight] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [driftExplanation, setDriftExplanation] = useState("");
-const [driftExplainLoading, setDriftExplainLoading] = useState(false);
+  const [driftExplainLoading, setDriftExplainLoading] = useState(false);
   const [reflectionText, setReflectionText] = useState(
     localStorage.getItem("drift_reflection") || "",
   );
@@ -68,12 +68,15 @@ const [driftExplainLoading, setDriftExplainLoading] = useState(false);
     const topContributor = contributors[0]?.label || "None";
 
     try {
-      const response = await axios.post("http://127.0.0.1:8000/ai-insight", {
-        drift_history: driftHistory,
-        mood_history: moodHistory,
-        top_contributor: topContributor,
-        reflection: reflectionText,
-      });
+      const response = await axios.post(
+        "https://drift-0q7u.onrender.com/ai-insight",
+        {
+          drift_history: driftHistory,
+          mood_history: moodHistory,
+          top_contributor: topContributor,
+          reflection: reflectionText,
+        },
+      );
       setAiInsight(response.data.insight);
     } catch (e) {
       console.error(e);
@@ -93,12 +96,15 @@ const [driftExplainLoading, setDriftExplainLoading] = useState(false);
     setDriftExplainLoading(true);
 
     try {
-      const response = await axios.post("http://127.0.0.1:8000/explain-drift", {
-        current_drift: data.present.identity_drift_index,
-        projected_drift: data.future.projected_identity_index,
-        status: data.present.status,
-        explanations: data.present.explanations,
-      });
+      const response = await axios.post(
+        "https://drift-0q7u.onrender.com/explain-drift",
+        {
+          current_drift: data.present.identity_drift_index,
+          projected_drift: data.future.projected_identity_index,
+          status: data.present.status,
+          explanations: data.present.explanations,
+        },
+      );
 
       setDriftExplanation(response.data.insight);
     } catch (e) {
@@ -133,9 +139,12 @@ const [driftExplainLoading, setDriftExplainLoading] = useState(false);
     }
     setLoading(true);
     try {
-      const response = await axios.post("http://127.0.0.1:8000/analyze", {
-        metrics: history,
-      });
+      const response = await axios.post(
+        "https://drift-0q7u.onrender.com/analyze",
+        {
+          metrics: history,
+        },
+      );
       setData(response.data);
     } catch (error) {
       console.error(error);
