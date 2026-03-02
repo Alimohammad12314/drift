@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
-import pandas as pd
+
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,6 +40,114 @@ class DataInput(BaseModel):
 
 @app.post("/analyze")
 def analyze(data: DataInput):
+
+    # ---- Convert input to NumPy arrays ----
+    sleep_vals = np.array([m.sleep for m in data.metrics])
+    work_vals = np.array([m.work_hours for m in data.metrics])
+    mood_vals = np.array([m.mood for m in data.metrics])
+
+    # ---- BASELINE (PAST) ----
+    baseline_mean = {
+        "sleep": float(np.mean(sleep_vals)),
+        "work_hours": float(np.mean(work_vals)),
+        "mood": float(np.mean(mood_vals))
+    }
+
+    baseline_std = {
+        "sleep": float(np.std(sleep_vals)) or 1,
+        "work_hours": float(np.std(work_vals)) or 1,
+        "mood": float(np.std(mood_vals)) or 1
+    }
+
+    latest = {
+        "sleep": sleep_vals[-1],
+        "work_hours": work_vals[-1],
+        "mood": mood_vals[-1]
+    }
+
+    # ---- PRESENT DRIFT (Z-score calculation) ----
+    drift_scores = {}
+
+    for key in latest:
+        z_score = (latest[key] - baseline_mean[key]) / baseline_std[key]
+        drift_scores[key] = round(float(z_score), 2)
+
+    abs_drifts = [abs(v) for v in drift_scores.values()]
+    identity_drift_index = round(sum(abs_drifts) / len(abs_drifts), 2)
+
+    # ---- STATUS CLASSIFICATION ----
+    if identity_drift_index < 0.5:
+        status = "In Balance"
+        message = "Your recent days look similar to your usual rhythm."
+    elif identity_drift_index < 1.0:
+        status = "Gentle Shift"
+        message = "There are small changes compared to your usual pattern."
+    elif identity_drift_index < 2.0:
+        status = "Noticeable Shift"
+        message = "Your recent behavior differs from what’s typical for you."
+    else:
+        status = "Strong Shift"
+        message = "Your current pattern is quite different from your usual baseline."
+
+    # ---- EXPLAINABILITY ----
+    explanations = []
+
+    for key in latest:
+        drift_value = drift_scores[key]
+        magnitude = abs(drift_value)
+
+        if magnitude < 0.5:
+            continue
+
+        direction = "higher" if drift_value > 0 else "lower"
+
+        if magnitude < 1:
+            intensity = "slightly different"
+        elif magnitude < 2:
+            intensity = "moderately different"
+        else:
+            intensity = "significantly different"
+
+        explanation = (
+            f"{key.replace('_',' ').title()} is {direction} than your usual "
+            f"average ({round(baseline_mean[key],2)}). "
+            f"This is {intensity} compared to your normal pattern."
+        )
+
+        explanations.append(explanation)
+
+    # ---- FUTURE PROJECTION (Linear Regression) ----
+    X = np.arange(len(abs_drifts)).reshape(-1, 1)
+    y = np.array(abs_drifts)
+
+    reg = LinearRegression()
+    reg.fit(X, y)
+
+    future_X = np.array([[len(abs_drifts) + 7]])
+    future_prediction = reg.predict(future_X)[0]
+    future_projection = max(0, round(float(future_prediction), 2))
+
+    if future_projection <= identity_drift_index:
+        future_message = "Your pattern appears steady."
+    else:
+        future_message = "If this direction continues, your rhythm may drift further."
+
+    return {
+        "past": {
+            "baseline_mean": baseline_mean
+        },
+        "present": {
+            "drift_scores": drift_scores,
+            "identity_drift_index": identity_drift_index,
+            "status": status,
+            "reflection": message,
+            "explanations": explanations
+        },
+        "future": {
+            "projected_identity_index": future_projection,
+            "direction_message": future_message
+        }
+    }
 
     # ---- Convert input to DataFrame ----
     df = pd.DataFrame([m.dict() for m in data.metrics])
